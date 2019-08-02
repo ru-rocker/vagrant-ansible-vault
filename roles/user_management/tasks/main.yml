@@ -1,0 +1,7 @@
+- name: "Create a 2048-bit SSH key for user {{ username }} in ~{{ username }}/.ssh/id_rsa"
+  user:
+    name: '{{ username }}'
+    generate_ssh_key: yes
+    shell: /sbin/nologin
+    ssh_key_bits: 2048
+    ssh_key_file: .ssh/id_rsa

@@ -1,0 +1,58 @@
+- hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars:
+    dict_host: {}
+    dict_user: {}
+    dict_pass: {}
+
+  tasks:
+  - name: show all the hosts matching the pattern
+    debug:
+      msg: "{{ item }}"
+    with_inventory_hostnames:
+      - all
+  
+  - name: get username and password from vault
+    uri:
+      url: https://127.0.0.1:8200/v1/auth/cert/login
+      body: '{"name":"ansible"}'
+      method: POST
+      body_format: json
+      validate_certs: no
+      client_cert: 'cert/cert.pem'
+      client_key: 'cert/key.pem'
+    register: result
+  
+  - set_fact: 
+      client_token: "{{ result.json['auth'].client_token }}"
+    
+  - name: print token
+    debug:
+      msg: "{{ client_token }}"
+
+  - name: get the secret!
+    uri:
+      url: "https://127.0.0.1:8200/v1/ansible/data/{{ item }}"
+      method: GET
+      validate_certs: no
+      headers:
+        X-Vault-Token: "{{ client_token }}"
+    register: secret_result
+    with_inventory_hostnames:
+      - all    
+
+  - set_fact:
+      dict_host: "{{ dict_host | combine( { item.item : item.json['data']['data'].host } ) }}"
+      dict_user: "{{ dict_user | combine( { item.item : item.json['data']['data'].username } ) }}"
+      dict_pass: "{{ dict_pass | combine( { item.item : item.json['data']['data'].password } ) }}"
+    with_items:
+      - "{{ secret_result.results }}"
+
+
+- hosts: servers
+  gather_facts: no
+  roles:
+  - user_management
+  become: true
